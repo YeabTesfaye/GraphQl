@@ -30,7 +30,7 @@ const ProjectType = new GraphQLObjectType({
     client: {
       type: ClientType,
       resolve(parent, args) {
-        return Client.findById(Project.clientId);
+        return Client.findById(parent.clientId);
       },
     },
   },
@@ -143,6 +143,37 @@ const myMutation = new GraphQLObjectType({
         return Project.findByIdAndRemove(args.id);
       },
     },
+    updateProject : {
+      type : ProjectType,
+      args : {
+        id : {type : new GraphQLNonNull(GraphQLString)},
+        name : {type : GraphQLString},
+        description : {type : GraphQLString},
+        status: {
+          type: new GraphQLEnumType({
+            name: "ProjectStatusUpdate",
+            values: {
+              new: { value: "Not Started" }, // Renamed from "new"
+              progress: { value: "In Progress" },
+              completed: { value: "Completed" },
+            },
+          }),
+          defaultValue: "Not Started",
+        },
+      },
+      resolve(parent, args){
+        return Project.findByIdAndUpdate(
+          args.id,{
+            $set : {
+              name : args.name,
+              description : args.description,
+              status : args.status
+            }
+          },
+          {new : true}
+        )
+      }
+    }
   },
 });
 
