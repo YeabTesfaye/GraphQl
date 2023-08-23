@@ -1,6 +1,8 @@
 import {
+  GraphQLEnumType,
   GraphQLID,
   GraphQLList,
+  GraphQLNonNull,
   GraphQLObjectType,
   GraphQLSchema,
   GraphQLString,
@@ -25,12 +27,12 @@ const ProjectType = new GraphQLObjectType({
     name: { type: GraphQLString },
     description: { type: GraphQLString },
     status: { type: GraphQLString },
-    client : {
-        type : ClientType,
-        resolve(parent, args){
-            return Client.findById(Project.clientId)
-        }  
-    }
+    client: {
+      type: ClientType,
+      resolve(parent, args) {
+        return Client.findById(Project.clientId);
+      },
+    },
   },
 });
 
@@ -44,12 +46,12 @@ const RootQuery = new GraphQLObjectType({
       },
     },
     project: {
-        type: ProjectType,
-        args : {id : {type : GraphQLID}},
-        resolve(parent, args) {
-          return Project.findById(args.id);
-        },
+      type: ProjectType,
+      args: { id: { type: GraphQLID } },
+      resolve(parent, args) {
+        return Project.findById(args.id);
       },
+    },
     clients: {
       type: new GraphQLList(ClientType),
       resolve(parent, args) {
@@ -60,7 +62,85 @@ const RootQuery = new GraphQLObjectType({
       type: ClientType,
       args: { id: { type: GraphQLID } },
       resolve(parent, args) {
-        return Client.findById(args.id) ;
+        return Client.findById(args.id);
+      },
+    },
+  },
+});
+
+// Mutations
+const myMutation = new GraphQLObjectType({
+  name: "Mutation",
+  fields: {
+    addClient: {
+      type: ClientType,
+      args: {
+        name: { type: new GraphQLNonNull(GraphQLString) },
+        email: { type: new GraphQLNonNull(GraphQLString) },
+        phone: { type: new GraphQLNonNull(GraphQLString) },
+      },
+      async resolve(parent, args) {
+        try {
+          const client = new Client({
+            name: args.name,
+            email: args.email,
+            phone: args.phone,
+          });
+
+          // Save the client to the database
+          const savedClient = await client.save();
+          return savedClient;
+        } catch (error) {
+          console.error("Error adding client:", error);
+          throw new Error("Could not add client");
+        }
+      },
+    },
+    deleteClient: {
+      type: ClientType,
+      args: {
+        id: { type: new GraphQLNonNull(GraphQLID) },
+      },
+      resolve(parent, args) {
+        return Client.findByIdAndRemove(args.id);
+      },
+    },
+    addProject: {
+      type: ProjectType,
+      args: {
+        name: { type: new GraphQLNonNull(GraphQLString) },
+        description: { type: new GraphQLNonNull(GraphQLString) },
+        status: {
+          type: new GraphQLEnumType({
+            name: "ProjectStatus",
+            values: {
+              new: { value: "Not Started" }, // Renamed from "new"
+              progress: { value: "In Progress" },
+              completed: { value: "Completed" },
+            },
+          }),
+          defaultValue: "Not Started",
+        },
+
+        clientId: { type: GraphQLID },
+      },
+      resolve(parent, args) {
+        const project = new Project({
+          name: args.name,
+          description: args.description,
+          status: args.status,
+          clientId: args.clientId,
+        });
+        return project.save();
+      },
+    },
+    deleteProject: {
+      type: ProjectType,
+      args: {
+        id: { type: new GraphQLNonNull(GraphQLID) },
+      },
+      resolve(parent, args) {
+        return Project.findByIdAndRemove(args.id);
       },
     },
   },
@@ -68,6 +148,7 @@ const RootQuery = new GraphQLObjectType({
 
 const schema = new GraphQLSchema({
   query: RootQuery,
+  mutation: myMutation,
 });
 
 export default schema;
